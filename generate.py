@@ -91,9 +91,9 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
                 remaining_size
                 if (
                     not config.warm_cache
-                    or list(config.content_variations.keys()).index(content_name) > 0
+                    or list(config.content_variations.keys()).index(content_name) == 0
                 )
-                else remaining_size + 1
+                else config.batch_size
             )
         ]
 
