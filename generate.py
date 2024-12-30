@@ -16,27 +16,35 @@ async def make_request(
     content_message: str,
     config: Config,
     pbar: tqdm,
+    semaphore: asyncio.Semaphore,
 ) -> str:
-    response = await client.request_chat_completion(
-        {
-            "model": config.model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt,
-                            "cache_control": {"type": "ephemeral"},
-                        }
-                    ],
-                },
-                {"role": "user", "content": content_message},
-            ],
-        }
-    )
-    pbar.update(1)
-    return strip_tags(response, config.strip_tags)
+    async def validator(response: str) -> bool:
+        return all(
+            f"<{tag}" in response and f"</{tag}>" in response for tag in config.tags
+        )
+
+    async with semaphore:
+        response = await client.request_chat_completion(
+            {
+                "model": config.model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": prompt,
+                                "cache_control": {"type": "ephemeral"},
+                            }
+                        ],
+                    },
+                    {"role": "user", "content": content_message},
+                ],
+            },
+            validator=validator,
+        )
+        pbar.update(1)
+        return strip_tags(response, config.tags)
 
 
 async def execute_batch(
@@ -60,6 +68,8 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
         len(config.content_prompts) * len(config.content_variations) * config.batch_size
     )
 
+    semaphore = asyncio.Semaphore(20)
+
     with tqdm(total=total_generations, desc="Processing") as pbar:
         results: Dict[str, Dict[str, List[str]]] = {}
 
@@ -68,7 +78,7 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
                 (
                     content_name,
                     prompt_name,
-                    make_request(client, prompt, message, config, pbar),
+                    make_request(client, prompt, message, config, pbar, semaphore),
                 )
                 for prompt_name, prompt in config.content_prompts.items()
                 for content_name, message in config.content_variations.items()
@@ -83,7 +93,7 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
             (
                 content_name,
                 prompt_name,
-                make_request(client, prompt, message, config, pbar),
+                make_request(client, prompt, message, config, pbar, semaphore),
             )
             for prompt_name, prompt in config.content_prompts.items()
             for content_name, message in config.content_variations.items()
