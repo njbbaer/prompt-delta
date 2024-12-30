@@ -10,7 +10,13 @@ from src.config import Config
 from src.yaml_config import yaml
 
 
-async def make_request(client: OpenRouterClient, prompt: str, config: Config) -> str:
+async def make_request(
+    client: OpenRouterClient,
+    prompt: str,
+    content_message: str,
+    config: Config,
+    pbar: tqdm,
+) -> str:
     response = await client.request_chat_completion(
         {
             "model": config.model,
@@ -25,48 +31,81 @@ async def make_request(client: OpenRouterClient, prompt: str, config: Config) ->
                         }
                     ],
                 },
-                {"role": "user", "content": config.content_message},
+                {"role": "user", "content": content_message},
             ],
         }
     )
+    pbar.update(1)
     return strip_tags(response, config.strip_tags)
 
 
 async def execute_batch(
-    tasks: List[Tuple[str, AsyncIterator]], pbar: tqdm
-) -> Dict[str, List[str]]:
-    results = {}
-    completed = await asyncio.gather(*[task for _, task in tasks])
-    pbar.update(len(completed))
+    tasks: List[Tuple[str, str, AsyncIterator]]
+) -> Dict[str, Dict[str, List[str]]]:
+    results: Dict[str, Dict[str, List[str]]] = {}
+    completed = await asyncio.gather(*[task for _, _, task in tasks])
 
-    for (name, _), result in zip(tasks, completed):
-        results.setdefault(name, []).append(LiteralScalarString(result))
+    for (content_name, prompt_name, _), result in zip(tasks, completed):
+        if content_name not in results:
+            results[content_name] = {}
+        if prompt_name not in results[content_name]:
+            results[content_name][prompt_name] = []
+        results[content_name][prompt_name].append(LiteralScalarString(result))
 
     return results
 
 
 async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
-    with tqdm(total=config.total_calls, desc="Processing") as pbar:
-        results = {}
+    total_generations = (
+        len(config.content_prompts) * len(config.content_variations) * config.batch_size
+    )
+
+    with tqdm(total=total_generations, desc="Processing") as pbar:
+        results: Dict[str, Dict[str, List[str]]] = {}
 
         if config.warm_cache:
             warm_tasks = [
-                (name, make_request(client, prompt, config))
-                for name, prompt in config.content_prompts.items()
+                (
+                    content_name,
+                    prompt_name,
+                    make_request(client, prompt, message, config, pbar),
+                )
+                for prompt_name, prompt in config.content_prompts.items()
+                for content_name, message in config.content_variations.items()
+                if list(config.content_variations.keys()).index(content_name) == 0
             ]
-            results = await execute_batch(warm_tasks, pbar)
+            warm_results = await execute_batch(warm_tasks)
+            results.update(warm_results)
 
         remaining_size = config.batch_size - (1 if config.warm_cache else 0)
+
         remaining_tasks = [
-            (name, make_request(client, prompt, config))
-            for name, prompt in config.content_prompts.items()
-            for _ in range(remaining_size)
+            (
+                content_name,
+                prompt_name,
+                make_request(client, prompt, message, config, pbar),
+            )
+            for prompt_name, prompt in config.content_prompts.items()
+            for content_name, message in config.content_variations.items()
+            for _ in range(
+                remaining_size
+                if (
+                    not config.warm_cache
+                    or list(config.content_variations.keys()).index(content_name) > 0
+                )
+                else remaining_size + 1
+            )
         ]
 
-        remaining_results = await execute_batch(remaining_tasks, pbar)
+        remaining_results = await execute_batch(remaining_tasks)
 
-        for name, responses in remaining_results.items():
-            results.setdefault(name, []).extend(responses)
+        for content_name, prompt_dict in remaining_results.items():
+            if content_name not in results:
+                results[content_name] = {}
+            for prompt_name, generations in prompt_dict.items():
+                if prompt_name not in results[content_name]:
+                    results[content_name][prompt_name] = []
+                results[content_name][prompt_name].extend(generations)
 
     return results
 
