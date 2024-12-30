@@ -11,6 +11,7 @@ class Config:
     comparison_prompt: str
     content_message: str
     strip_tags: List[str] = None
+    warm_cache: bool = False
     model: str = "anthropic/claude-3.5-haiku:beta"
     batch_size: int = 1
     max_retries: int = 3
