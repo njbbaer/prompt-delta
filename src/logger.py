@@ -36,7 +36,11 @@ class Logger:
     def _format_text(data):
         if isinstance(data, dict):
             return {
-                k: (LiteralScalarString(v) if k == "text" else Logger._format_text(v))
+                k: (
+                    LiteralScalarString(v)
+                    if k == "text" or (k == "content" and isinstance(v, str))
+                    else Logger._format_text(v)
+                )
                 for k, v in data.items()
             }
         elif isinstance(data, list):
