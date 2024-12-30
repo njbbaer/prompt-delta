@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import Dict
 from pathlib import Path
 from tqdm import tqdm
@@ -17,10 +18,25 @@ async def generate_batch(
         response = await client.request_chat_completion(
             {
                 "model": config.model,
-                "messages": [{"role": "system", "content": prompt}],
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": prompt,
+                                "cache_control": {
+                                    "type": "ephemeral",
+                                },
+                            }
+                        ],
+                    },
+                    {"role": "user", "content": config.content_message},
+                ],
             }
         )
         pbar.update(1)
+        response = strip_tags(response, config.strip_tags)
         return LiteralScalarString(response)
 
     tasks = [make_request() for _ in range(config.batch_size)]
@@ -40,13 +56,20 @@ async def process_prompts(
         return dict(zip(config.content_prompts.keys(), results))
 
 
+def strip_tags(content: str, tags: List[str]) -> str:
+    for tag in tags:
+        content = re.sub(rf"<{tag}.*?>.*?</{tag}>", "", content, flags=re.DOTALL)
+    content = re.sub(r"\n{3,}", "\n\n", content)
+    return content.strip()
+
+
 async def main():
-    config = await Config.load("config.yml")
+    config = await Config.load("./files/config.yml")
     client = OpenRouterClient(config)
 
     results = await process_prompts(client, config)
 
-    output_path = Path("generations.yml")
+    output_path = Path("./files/generations.yml")
 
     with open(output_path, "w") as f:
         yaml.dump(results, f)

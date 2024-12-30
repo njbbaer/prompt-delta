@@ -8,7 +8,7 @@ from .logger import Logger
 class OpenRouterClient:
     def __init__(self, config):
         self.config = config
-        self.logger = Logger("log.yml")
+        self.logger = Logger()
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.total_cost = 0
 

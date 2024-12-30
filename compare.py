@@ -46,10 +46,10 @@ async def compare(client: OpenRouterClient, config: Config, generations: Dict) -
 
 
 async def main():
-    config = await Config.load("config.yml")
+    config = await Config.load("./files/config.yml")
     client = OpenRouterClient(config)
 
-    generations_path = Path("generations.yml")
+    generations_path = Path("./files/generations.yml")
     with open(generations_path) as f:
         generations = yaml.load(f)
 
