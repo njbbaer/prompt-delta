@@ -28,15 +28,15 @@ def interleave_generations(config: Config, generations: Dict) -> str:
         random.shuffle(gen3)
 
         for j, content in enumerate(gen1, start=1):
-            interleaved.append(f"### Variation {i}, Prompt 1, Sample {j}")
+            interleaved.append(f"### Variation {i}, Sample {j}, Prompt 1")
             interleaved.append(content)
 
         for j, content in enumerate(gen2, start=1):
-            interleaved.append(f"### Variation {i}, Prompt 2, Sample {j}")
+            interleaved.append(f"### Variation {i}, Sample {j}, Prompt 2")
             interleaved.append(content)
 
         for j, content in enumerate(gen3, start=1):  # Added loop for gen3
-            interleaved.append(f"### Variation {i}, Prompt 3, Sample {j}")
+            interleaved.append(f"### Variation {i}, Sample {j}, Prompt 3")
             interleaved.append(content)
 
     return "\n\n".join(interleaved)
