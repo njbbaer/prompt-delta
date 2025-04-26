@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List
 import jinja2
 
@@ -7,9 +7,9 @@ from .yaml_config import yaml
 
 @dataclass
 class Config:
-    content_prompts: Dict[str, str]
     comparison_prompt: str
     content_variations: Dict[str, str]
+    content_prompts: Dict[str, str] = field(default_factory=dict)
     tags: List[str] = None
     warm_cache: bool = False
     model: str = "anthropic/claude-3.5-haiku:beta"
