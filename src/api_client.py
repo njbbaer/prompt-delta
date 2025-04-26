@@ -13,11 +13,6 @@ class OpenRouterClient:
         self.total_cost = 0
 
     async def request_chat_completion(self, params, validator=None):
-        params = {
-            **params,
-            "max_tokens": 2048,
-        }
-
         for attempt in range(self.config.max_retries):
             try:
                 response, gen_id = await self._make_request(params)
