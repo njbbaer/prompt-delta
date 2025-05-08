@@ -7,12 +7,13 @@ from .yaml_config import yaml
 
 @dataclass
 class Config:
-    comparison_prompt: str
+    judge_prompt: str
     content_variations: Dict[str, str]
+    judge_model: str
+    generation_model: str
     content_prompts: Dict[str, str] = field(default_factory=dict)
-    tags: List[str] = None
+    response_tags: List[str] = None
     warm_cache: bool = False
-    model: str = "anthropic/claude-3.5-haiku:beta"
     batch_size: int = 1
     max_retries: int = 3
 

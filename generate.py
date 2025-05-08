@@ -20,13 +20,14 @@ async def make_request(
 ) -> str:
     async def validator(response: str) -> bool:
         return all(
-            f"<{tag}" in response and f"</{tag}>" in response for tag in config.tags
+            f"<{tag}" in response and f"</{tag}>" in response
+            for tag in config.response_tags
         )
 
     async with semaphore:
         response = await client.request_chat_completion(
             {
-                "model": config.model,
+                "model": config.judge_model,
                 "messages": [
                     {
                         "role": "system",
@@ -44,11 +45,11 @@ async def make_request(
             validator=validator,
         )
         pbar.update(1)
-        return strip_tags(response, config.tags)
+        return response_tags(response, config.response_tags)
 
 
 async def execute_batch(
-    tasks: List[Tuple[str, str, AsyncIterator]]
+    tasks: List[Tuple[str, str, AsyncIterator]],
 ) -> Dict[str, Dict[str, List[str]]]:
     results: Dict[str, Dict[str, List[str]]] = {}
     completed = await asyncio.gather(*[task for _, _, task in tasks])
@@ -119,8 +120,7 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
 
     return results
 
-
-def strip_tags(content: str, tags: List[str]) -> str:
+def response_tags(content: str, tags: List[str]) -> str:
     for tag in tags:
         content = re.sub(rf"<{tag}.*?>.*?</{tag}>", "", content, flags=re.DOTALL)
     return re.sub(r"\n{3,}", "\n\n", content).strip()

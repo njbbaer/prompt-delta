@@ -28,28 +28,28 @@ def interleave_generations(config: Config, generations: Dict) -> str:
         random.shuffle(gen3)
 
         for j, content in enumerate(gen1, start=1):
-            interleaved.append(f"### Variation {i}, Sample {j}, Prompt 1")
+            interleaved.append(f"### Variation {i}, Author 1, Sample {j}")
             interleaved.append(content)
 
         for j, content in enumerate(gen2, start=1):
-            interleaved.append(f"### Variation {i}, Sample {j}, Prompt 2")
+            interleaved.append(f"### Variation {i}, Author 2, Sample {j}")
             interleaved.append(content)
 
         for j, content in enumerate(gen3, start=1):  # Added loop for gen3
-            interleaved.append(f"### Variation {i}, Sample {j}, Prompt 3")
+            interleaved.append(f"### Variation {i}, Author 3, Sample {j}")
             interleaved.append(content)
 
     return "\n\n".join(interleaved)
 
 
-async def compare(client: OpenRouterClient, config: Config, generations: Dict) -> str:
+async def judge(client: OpenRouterClient, config: Config, generations: Dict) -> str:
     interleaved_content = interleave_generations(config, generations)
 
     response = await client.request_chat_completion(
         {
             "model": config.model,
             "messages": [
-                {"role": "system", "content": config.comparison_prompt},
+                {"role": "system", "content": config.judge_prompt},
                 {"role": "user", "content": interleaved_content},
             ],
         }
@@ -66,7 +66,7 @@ async def main():
     with open(generations_path) as f:
         generations = yaml.load(f)
 
-    analysis = await compare(client, config, generations)
+    analysis = await judge(client, config, generations)
 
     print(analysis)
     print(f"\nTotal cost: ${client.total_cost:.4f}")
