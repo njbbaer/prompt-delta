@@ -10,7 +10,7 @@ class Logger:
     def __init__(self):
         self.filepath = "./files/log.yml"
 
-    def log(self, id, cost, params, response):
+    def log(self, id, cost, cache_discount, params, response):
         buffer = io.StringIO()
         params["messages"] = self._format_text(params["messages"])
         yaml.dump(
@@ -19,6 +19,7 @@ class Logger:
                     "timestamp": self._current_timestamp(),
                     "id": id,
                     "cost": cost,
+                    "cache_discount": cache_discount,
                     "parameters": params,
                     "response": LiteralScalarString(response),
                 }

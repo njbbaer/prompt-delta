@@ -62,7 +62,7 @@ class OpenRouterClient:
             self.total_cost += cost
             self.cache_discount += cache_discount
 
-            self.logger.log(body["id"], cost, params, content)
+            self.logger.log(body["id"], cost, cache_discount, params, content)
             return content, body["id"]
 
     async def _fetch_details(self, generation_id: str):
