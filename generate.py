@@ -27,7 +27,7 @@ async def make_request(
     async with semaphore:
         response = await client.request_chat_completion(
             {
-                "model": config.judge_model,
+                "model": config.generation_model,
                 "messages": [
                     {
                         "role": "system",
@@ -120,6 +120,7 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
 
     return results
 
+
 def response_tags(content: str, tags: List[str]) -> str:
     for tag in tags:
         content = re.sub(rf"<{tag}.*?>.*?</{tag}>", "", content, flags=re.DOTALL)
@@ -137,7 +138,8 @@ async def main():
     with open(output_path, "w") as f:
         yaml.dump(results, f)
 
-    print(f"\nTotal cost: ${client.total_cost:.4f}")
+    print(f"\nTotal cost: ${client.total_cost:.2f}")
+    print(f"Cache discount: ${client.cache_discount:.2f}")
 
 
 if __name__ == "__main__":

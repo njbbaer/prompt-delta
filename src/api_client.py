@@ -10,7 +10,8 @@ class OpenRouterClient:
         self.config = config
         self.logger = Logger()
         self.api_key = os.getenv("OPENROUTER_API_KEY")
-        self.total_cost = 0
+        self.total_cost = 0.0
+        self.cache_discount = 0.0
 
     async def request_chat_completion(self, params, validator=None):
         for attempt in range(self.config.max_retries):
@@ -56,7 +57,10 @@ class OpenRouterClient:
             details = await self._fetch_details(body["id"])
 
             cost = details["data"]["total_cost"]
+            cache_discount = details["data"].get("cache_discount", 0.0)
+
             self.total_cost += cost
+            self.cache_discount += cache_discount
 
             self.logger.log(body["id"], cost, params, content)
             return content, body["id"]
