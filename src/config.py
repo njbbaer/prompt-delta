@@ -14,7 +14,8 @@ class Config:
     content_prompts: Dict[str, str] = field(default_factory=dict)
     response_tags: List[str] = None
     warm_cache: bool = False
-    batch_size: int = 1
+    num_generations: int = 1
+    num_judges: int = 1
     max_retries: int = 3
 
     @classmethod
@@ -24,10 +25,6 @@ class Config:
         resolved_data = cls._resolve_vars(data)
 
         return cls(**resolved_data)
-
-    @property
-    def total_calls(self) -> int:
-        return len(self.content_prompts) * self.batch_size
 
     @staticmethod
     def _resolve_vars(obj):

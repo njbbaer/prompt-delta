@@ -66,12 +66,14 @@ async def execute_batch(
 
 async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
     total_generations = (
-        len(config.content_prompts) * len(config.content_variations) * config.batch_size
+        len(config.content_prompts)
+        * len(config.content_variations)
+        * config.num_generations
     )
 
     semaphore = asyncio.Semaphore(20)
 
-    with tqdm(total=total_generations, desc="Processing") as pbar:
+    with tqdm(total=total_generations, desc="Generating") as pbar:
         results: Dict[str, Dict[str, List[str]]] = {}
 
         if config.warm_cache:
@@ -88,7 +90,7 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
             warm_results = await execute_batch(warm_tasks)
             results.update(warm_results)
 
-        remaining_size = config.batch_size - (1 if config.warm_cache else 0)
+        remaining_size = config.num_generations - (1 if config.warm_cache else 0)
 
         remaining_tasks = [
             (
@@ -104,7 +106,7 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
                     not config.warm_cache
                     or list(config.content_variations.keys()).index(content_name) == 0
                 )
-                else config.batch_size
+                else config.num_generations
             )
         ]
 
