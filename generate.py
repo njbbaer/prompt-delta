@@ -138,8 +138,9 @@ async def main():
     with open(output_path, "w") as f:
         yaml.dump(results, f)
 
-    print(f"\nTotal cost: ${client.total_cost:.2f}")
+    print()
     print(f"Cache discount: ${client.cache_discount:.2f}")
+    print(f"Total cost: ${client.total_cost:.2f}")
 
 
 if __name__ == "__main__":

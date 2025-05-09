@@ -57,7 +57,7 @@ class OpenRouterClient:
             details = await self._fetch_details(body["id"])
 
             cost = details["data"]["total_cost"]
-            cache_discount = details["data"].get("cache_discount", 0.0)
+            cache_discount = details["data"].get("cache_discount") or 0.0
 
             self.total_cost += cost
             self.cache_discount += cache_discount
