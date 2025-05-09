@@ -47,7 +47,7 @@ async def judge(client: OpenRouterClient, config: Config, generations: Dict) -> 
 
     response = await client.request_chat_completion(
         {
-            "model": config.model,
+            "model": config.judge_model,
             "messages": [
                 {"role": "system", "content": config.judge_prompt},
                 {"role": "user", "content": interleaved_content},
