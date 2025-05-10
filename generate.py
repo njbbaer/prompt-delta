@@ -1,5 +1,6 @@
 import asyncio
 import re
+import sys
 from typing import Dict, List, Tuple, AsyncIterator
 from pathlib import Path
 from tqdm import tqdm
@@ -25,9 +26,9 @@ async def make_request(
         )
 
     async with semaphore:
-        response = await client.request_chat_completion(
+        response = await client.request_completion(
             {
-                "model": config.generation_model,
+                "model": config.model,
                 "messages": [
                     {
                         "role": "system",
@@ -68,7 +69,7 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
     total_generations = (
         len(config.content_prompts)
         * len(config.content_variations)
-        * config.num_generations
+        * config.batch_size
     )
 
     semaphore = asyncio.Semaphore(20)
@@ -90,7 +91,7 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
             warm_results = await execute_batch(warm_tasks)
             results.update(warm_results)
 
-        remaining_size = config.num_generations - (1 if config.warm_cache else 0)
+        remaining_size = config.batch_size - (1 if config.warm_cache else 0)
 
         remaining_tasks = [
             (
@@ -106,7 +107,7 @@ async def process_prompts(client: OpenRouterClient, config: Config) -> Dict:
                     not config.warm_cache
                     or list(config.content_variations.keys()).index(content_name) == 0
                 )
-                else config.num_generations
+                else config.batch_size
             )
         ]
 
@@ -130,14 +131,15 @@ def response_tags(content: str, tags: List[str]) -> str:
 
 
 async def main():
-    config = await Config.load("./files/config.yml")
+    config_path = sys.argv[1]
+
+    config = Config(config_path, "generation")
     client = OpenRouterClient(config)
 
     results = await process_prompts(client, config)
 
-    output_path = Path("./files/generations.yml")
-
-    with open(output_path, "w") as f:
+    output_file = Path(config.output_file)
+    with open(output_file, "w") as f:
         yaml.dump(results, f)
 
     print()

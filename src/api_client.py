@@ -1,47 +1,44 @@
 import httpx
-import os
 import asyncio
 
-from .logger import Logger
+from src.config import Config
+from src.logger import Logger
 
 
 class OpenRouterClient:
-    def __init__(self, config):
+    def __init__(self, config: Config):
+        self.logger = Logger(config.log_file)
         self.config = config
-        self.logger = Logger()
-        self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.total_cost = 0.0
         self.cache_discount = 0.0
 
-    async def request_chat_completion(self, params, validator=None):
+    async def request_completion(self, params: dict, validator=None):
         for attempt in range(self.config.max_retries):
             try:
-                response, gen_id = await self._make_request(params)
+                response = await self._make_request(params)
 
                 if not response:
-                    print(f"Empty response on attempt #{attempt + 1}: {gen_id}")
-                    continue
+                    raise Exception("Empty response")
 
                 if validator and not await validator(response):
-                    print(f"Validation failed on attempt #{attempt + 1}: {gen_id}")
-                    continue
+                    raise Exception("Validation failed")
 
                 return response
 
-            except httpx.HTTPError as e:
-                print(f"HTTP error on attempt {attempt + 1}: {str(e)}")
+            except Exception as e:
+                print(f"Error on attempt {attempt + 1}: {str(e)}")
                 if attempt == self.config.max_retries - 1:
                     raise
 
-        raise RuntimeError("Failed to get a valid response after max retries")
+        raise Exception("Failed to get a valid response after max retries")
 
-    async def _make_request(self, params):
+    async def _make_request(self, params: dict):
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self.config.api_key}",
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=self.config.timeout) as client:
             response = await client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers=headers,
@@ -63,7 +60,7 @@ class OpenRouterClient:
             self.cache_discount += cache_discount
 
             self.logger.log(body["id"], cost, cache_discount, params, content)
-            return content, body["id"]
+            return content
 
     async def _fetch_details(self, generation_id: str):
         details_url = f"https://openrouter.ai/api/v1/generation?id={generation_id}"
@@ -72,7 +69,8 @@ class OpenRouterClient:
             try:
                 async with httpx.AsyncClient(timeout=3) as client:
                     response = await client.get(
-                        details_url, headers={"Authorization": f"Bearer {self.api_key}"}
+                        details_url,
+                        headers={"Authorization": f"Bearer {self.config.api_key}"},
                     )
                     response.raise_for_status()
                     return response.json()
