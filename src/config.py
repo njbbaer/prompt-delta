@@ -1,30 +1,33 @@
+from dataclasses import dataclass, field
+from typing import Dict, List, Any
 import jinja2
 import os
-from typing import Any
 
 from .yaml_config import yaml
 
 
+@dataclass(kw_only=True)
 class Config:
-    def __init__(self, filepath: str, subtype: str) -> None:
-        self.api_key = os.getenv("OPENROUTER_API_KEY")
-        self.timeout = 60
-        self.max_retries = 3
+    config_key: str = ""
+    timeout: int = 60
+    max_retries: int = 3
+    iterations: int = 1
+    model: str
+    log_file: str
+    output_file: str
 
-        self._load(filepath, subtype)
-
-    def _load(self, filepath: str, subtype: str) -> None:
+    @classmethod
+    def load(cls, filepath: str) -> "Config":
         with open(filepath, "r") as f:
             full_data = yaml.load(f)
 
         # Set working directory to the config file directory
         os.chdir(os.path.dirname(filepath))
 
-        subtype_data = full_data.get("shared", {}) | full_data[subtype]
-        resolved_data = self._resolve_vars(subtype_data)
+        subtype_data = full_data.get("shared", {}) | full_data[cls.config_key]
+        resolved_data = cls._resolve_vars(subtype_data)
 
-        for key, value in resolved_data.items():
-            setattr(self, key, value)
+        return cls(**resolved_data)
 
     @staticmethod
     def _resolve_vars(obj: Any) -> Any:
@@ -54,3 +57,16 @@ class Config:
             template = env.from_string(str(obj))
             return template.render()
         return obj
+
+    @property
+    def api_key(self):
+        return os.getenv("OPENROUTER_API_KEY")
+
+
+@dataclass(kw_only=True)
+class GenerationConfig(Config):
+    config_key: str = "generation"
+    content_prompts: Dict[str, str] = field(default_factory=dict)
+    response_tags: List[str] = []
+    warm_cache: bool = False
+    content_variations: Dict[str, str]
