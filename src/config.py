@@ -1,39 +1,36 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Any
+from typing import Dict, List
 import jinja2
-import os
 
 from .yaml_config import yaml
 
 
-@dataclass(kw_only=True)
+@dataclass
 class Config:
-    config_key: str = ""
-    timeout: int = 60
+    judge_prompt: str
+    content_variations: Dict[str, str]
+    judge_model: str
+    generation_model: str
+    content_prompts: Dict[str, str] = field(default_factory=dict)
+    response_tags: List[str] = None
+    warm_cache: bool = False
+    num_generations: int = 1
+    num_judges: int = 1
     max_retries: int = 3
-    iterations: int = 1
-    model: str
-    log_file: str
-    output_file: str
 
     @classmethod
-    def load(cls, filepath: str) -> "Config":
+    async def load(cls, filepath) -> "Config":
         with open(filepath, "r") as f:
-            full_data = yaml.load(f)
-
-        # Set working directory to the config file directory
-        os.chdir(os.path.dirname(filepath))
-
-        subtype_data = full_data.get("shared", {}) | full_data[cls.config_key]
-        resolved_data = cls._resolve_vars(subtype_data)
+            data = yaml.load(f)
+        resolved_data = cls._resolve_vars(data)
 
         return cls(**resolved_data)
 
     @staticmethod
-    def _resolve_vars(obj: Any) -> Any:
+    def _resolve_vars(obj):
         env = jinja2.Environment(loader=jinja2.FileSystemLoader("."), autoescape=False)
 
-        def load_file(filename: str) -> str:
+        def load_file(filename):
             template = env.get_template(filename)
             return template.render()
 
@@ -45,10 +42,10 @@ class Config:
                 return resolved
             obj = resolved
 
-        raise RuntimeError("Unable to resolve config data")
+        raise RuntimeError("Too many iterations resolving vars. Circular reference?")
 
     @staticmethod
-    def _resolve_vars_recursive(obj: Any, env: jinja2.Environment) -> Any:
+    def _resolve_vars_recursive(obj, env):
         if isinstance(obj, dict):
             return {k: Config._resolve_vars_recursive(v, env) for k, v in obj.items()}
         elif isinstance(obj, list):
@@ -57,16 +54,3 @@ class Config:
             template = env.from_string(str(obj))
             return template.render()
         return obj
-
-    @property
-    def api_key(self):
-        return os.getenv("OPENROUTER_API_KEY")
-
-
-@dataclass(kw_only=True)
-class GenerationConfig(Config):
-    config_key: str = "generation"
-    content_prompts: Dict[str, str] = field(default_factory=dict)
-    response_tags: List[str] = []
-    warm_cache: bool = False
-    content_variations: Dict[str, str]
